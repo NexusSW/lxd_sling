@@ -1,7 +1,4 @@
 ---
-driver:
-  name: vagrant
-
 provisioner:
   name: chef_zero
 
@@ -9,12 +6,19 @@ verifier:
   name: inspec
 
 platforms:
-  - name: ubuntu-16.04
+  - name: ubuntu-14.04
+    driver:
+      image_server: https://cloud-images.ubuntu.com/releases
+      ssh_login:
+        username: ubuntu
+      config:
+        security.nesting: true
+        security.privileged: true
 
 suites:
   - name: default
     run_list:
-      - recipe[lxd_nexus::default]
+      - lxd_nexus::default
     verifier:
       inspec_tests:
         - test/smoke/default

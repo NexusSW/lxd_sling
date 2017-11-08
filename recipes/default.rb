@@ -29,7 +29,7 @@ LXD_IPV6_ADDR=""
 LXD_IPV6_MASK=""
 LXD_IPV6_NETWORK=""
 LXD_IPV6_NAT="false"
-LXD_IPV6_PROXY="true"
+LXD_IPV6_PROXY="false"
 '
   only_if { File.exist? '/etc/default/lxd-bridge' }
   notifies :stop, 'service[lxd-bridge]', :before
@@ -80,9 +80,9 @@ unless node['username'] == 'travis'
     only_if { node['lsb']['codename'] == 'trusty' }
   end
   gem_package 'bundler'
-  execute 'bundle install' do
-    cwd '/vagrant'
-  end
+#  execute 'bundle install' do
+#    cwd '/vagrant'
+#  end
 end
 
 group 'lxd' do

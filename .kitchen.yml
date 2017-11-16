@@ -1,4 +1,12 @@
 ---
+driver:
+  name: lxd
+  image_server: https://cloud-images.ubuntu.com/releases
+  ssh_login: 'ubuntu'
+  config:
+    security.nesting: true
+    security.privileged: true
+
 provisioner:
   name: chef_zero
 
@@ -7,16 +15,10 @@ verifier:
 
 platforms:
   - name: ubuntu-14.04
-    driver:
-      image_server: https://cloud-images.ubuntu.com/releases
-      ssh_login:
-        username: ubuntu
-      config:
-        security.nesting: true
-        security.privileged: true
+  - name: ubuntu-16.04
 
 suites:
-  - name: default
+  - name: lxd
     run_list:
       - lxd_nexus::default
     verifier:

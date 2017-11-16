@@ -17,3 +17,5 @@ issues_url 'https://github.com/nexussw/lxd_nexus/issues'
 # a Supermarket.
 #
 source_url 'https://github.com/nexussw/lxd_nexus'
+
+depends 'lxd'

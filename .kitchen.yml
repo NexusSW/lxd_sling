@@ -13,9 +13,23 @@ provisioner:
 verifier:
   name: inspec
 
+# transport: ssh
+
 platforms:
   - name: ubuntu-14.04
   - name: ubuntu-16.04
+#    driver:
+#      name: vagrant
+#      customize:
+#        memory: 512
+#        createhd:
+#          - filename: c:/windows/temp/lxd-storage.vdi
+#            size: 1024
+#        storageattach:
+#          - storagectl: SATA Controller
+#            port: 2
+#            type: hdd
+#            medium: c:/windows/temp/lxd-storage.vdi
 
 suites:
   - name: lxd

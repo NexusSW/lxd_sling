@@ -23,7 +23,11 @@ default_action :init
 load_current_value do
   lxd = Chef::Recipe::LXD.new node, server_path
   return unless lxd.installed?
-  info = lxd.info
+  begin
+    info = lxd.info
+  rescue Mixlib::ShellOut::ShellCommandFailed
+    return # The service must not be running if 'lxc info' won't work
+  end
 
   address = info['config']['core.https_address']
   network_port address.slice!(/:[0-9]*$/).sub(':', '') if address
@@ -66,18 +70,6 @@ action :init do
     we_installed = true unless was_installed
   end
 
-  # init properties
-  # property :network_address, String
-  # property :network_port, Integer, default: 8443
-
-  # property :trust_password, [String], sensitive: true, desired_state: false
-  # property :raw_config, Hash
-
-  # other properties
-  # property :users, [Array, String], desired_state: false
-  # property :certificate_file, String, desired_state: false
-  # property :certificate_key, String, desired_state: false
-
   # run `lxd init --auto` - though not strictly required, it's just good form...
   service 'lxd' do
     action [:enable, :start]
@@ -92,11 +84,11 @@ action :init do
     converge_by 'initializing LXD' do
       lxd.exec! cmd
     end
-  else
+  elsif new_resource.network_address
     converge_if_changed :network_address, :network_port do
       lxd.exec! "lxc config set core.https_address #{new_resource.network_address}:#{new_resource.network_port}"
       restart_service = true
-    end if new_resource.network_address
+    end
   end
 
   if property_is_set?(:trust_password) && !lxd.test_password(new_resource.trust_password)
@@ -104,6 +96,37 @@ action :init do
       lxd.exec_sensitive! "lxc config set core.trust_password '#{new_resource.trust_password}'"
       lxd.save_password_hash lxd.password_hash(new_resource.trust_password)
     end
+  end
+
+  group 'lxd' do
+    members new_resource.users
+    action :modify
+  end if property_is_set? :users
+
+  file File.join(new_resource.server_path, 'server.crt') do
+    content File.read(new_resource.certificate_file)
+    owner 'root'
+    group 'root'
+    mode '0644'
+    action :create
+    notifies :run, 'ruby_block[delayed-restart-lxd]', :immediately
+  end if property_is_set? :certificate_file
+
+  file File.join(new_resource.server_path, 'server.key') do
+    content File.read(new_resource.certificate_key)
+    owner 'root'
+    group 'root'
+    mode '0600'
+    sensitive true
+    action :create
+    notifies :run, 'ruby_block[delayed-restart-lxd]', :immediately
+  end if property_is_set? :certificate_key
+
+  ruby_block 'delayed-restart-lxd' do
+    block do
+      restart_service = true
+    end
+    action :nothing
   end
 
   service 'lxd' do
@@ -132,17 +155,6 @@ action_class do
     # Xenial: :lts package available by default 2.0.x
     #   backports contains latest canonical CI validated :feature 2.x
 
-    # using repo gives the latest greatest :feature no matter os version - 2.x
-    #   and this will shield us in case xenial-backports gets a version cap like trusty-backports - it'll continue to roll forward
-    #   and upstream is pro so I'm not too worried about the extra testing
-    #     if you're using the feature branch without a version pin, then assumedly you're in a dev/CI environment anyways
-
-    # untested, but at this point I'm assuming for newer zesty+
-    #   that you'll get the CI tested :feature when specifying :lts, or latest repo version for :feature
-    #   I'll rework the soft pins when bionic is released, if needed (and this will be a major version bump if there are changes)
-    #     when bionic releases, I assume there will be a new :lts pin, and I'll have to come up with a good name for the old :lts
-    #     as noted below, it's also possible that I'll have to do nothing, and just let the dist dictate what version :lts refers to
-    #
     # I'm not explicitly supporting downgrading - use a version pin (untested - it 'should' work?)
     #
     # 2.21 will be the final feature release before 3.0 alpha release in January
@@ -150,7 +162,7 @@ action_class do
     #   the PPA is EOL after December, so the only install meduims will be backports & snap
     #     TBD if there will be a backports in bionic
     #
-    # Once I'm done with this cookbook, I'm going to come back through here and rewrite to allow for snap installs(?)
+    # Once I'm done with this cookbook, I'm going to come back through here and rewrite to allow for snap installs
     #   snap appears to be the only way we'll be able to install on other distros
     #   the challenge will be the change in folder structure, so try to stay away from specifics as much as possible in the mean time
     #   I might wind up going away from the lxd cookbook if i have to do too much more myself

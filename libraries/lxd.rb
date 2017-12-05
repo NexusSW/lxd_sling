@@ -17,7 +17,13 @@ class Chef::Recipe::LXD
   end
 
   def exec!(cmd)
-    shell_out!("env LXD_DIR=#{lxd_dir} #{cmd}").stdout
+    res = exec(cmd)
+    res.error!
+    res.stdout
+  end
+
+  def exec(cmd)
+    shell_out "env LXD_DIR=#{lxd_dir} #{cmd}"
   end
 
   def exec_sensitive!(cmd)

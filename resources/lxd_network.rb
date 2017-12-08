@@ -14,7 +14,9 @@ property :ipv4_address, [String, Symbol], default: :auto, callbacks: {
 }
 property :ipv4_dhcp, [true, false], default: true, coerce: ->(val) { val.is_a?(String) ? val == 'true' : val }
 property :ipv4_dhcp_expiry, Integer, default: 60
-property :ipv4_dhcp_ranges, String, coerce: ->(range) { range.is_a?(String) ? range : range.join(',') }
+property :ipv4_dhcp_ranges, [String, Symbol], default: :auto, coerce: ->(range) { (range.is_a?(String) || range == :auto) ? range : range.join(',') }, callbacks: {
+  'Invalid IPv4 DHCP range' => ->(range) { range.is_a?(String) || (range == :auto) },
+}
 property :ipv4_firewall, [true, false], default: true, coerce: ->(val) { val.is_a?(String) ? val == 'true' : val }
 property :ipv4_nat, [true, false], coerce: ->(val) { val.is_a?(String) ? val == 'true' : val }
 property :ipv4_routes, String, coerce: ->(route) { route.is_a?(String) ? route : route.join(',') }
@@ -36,8 +38,15 @@ resource_name :lxd_network
 
 load_current_value do
   lxd = Chef::Recipe::LXD.new node, server_path
+  begin
+    new_bridge = lxd.info['api_extensions'].index 'network'
+  rescue Mixlib::ShellOut::ShellCommandFailed
+    # escape clause to allow reconfiguring a borked old-bridge
+    new_bridge = !::File.exist?('/etc/default/lxd-bridge')
+    raise if new_bridge
+  end
   # New bridge code
-  if lxd.info['api_extensions'].index 'network'
+  if new_bridge
     begin
       net = YAML.load lxd.exec! "lxc network show #{network_name}"
     rescue Mixlib::ShellOut::ShellCommandFailed
@@ -45,7 +54,7 @@ load_current_value do
     end
     net['config'].each do |k, v|
       prop = k.tr('.', '_')
-      call(prop, v) if respond_to? prop
+      send(prop, v) if respond_to? prop
     end
   else # old bridge code
     # network_name `sed -n '/^LXD_BRIDGE=/s/.*="\\(.*\\)"/\\1/p' /etc/default/lxd-bridge`.strip
@@ -79,10 +88,21 @@ action :create do
 end
 
 action :modify do
-  raise "LXD network (#{network_name}) does not exist." unless network_exists?
-  ipv4 = resolve_ipv4(new_resource.ipv4_address)
-  ipv6 = resolve_ipv6(new_resource.ipv6_address)
-  unless new_bridge?
+  unless network_exists?
+    raise "The current LXD bridge does not have the same name (#{new_resource.network_name}).  Use the :rename action if this is intended." unless new_bridge?
+    raise "LXD network (#{network_name}) does not exist."
+  end
+  if new_bridge?
+
+  else # old bridge
+    ipv4 = resolve_ipv4(new_resource.ipv4_address)
+    ipv6 = resolve_ipv6(new_resource.ipv6_address)
+    service_name = node['lsb']['codename'] == 'trusty' ? 'lxd' : 'lxd-bridge'
+    service service_name do
+      action :nothing
+      action [:enable, :start] if service_name == 'lxd-bridge'
+      retries 2 # on trusty - stop works, but errors, if the network is presently 'deleted'
+    end
     template OLD_BRIDGE_FILE do
       source 'lxd-bridge.erb'
       variables resource: {
@@ -99,10 +119,8 @@ action :modify do
       group 'root'
       mode '0644'
       action :create
-      notifies :restart, 'service[lxd-bridge]', :delayed
-    end
-    service 'lxd-bridge' do
-      action [:enable, :start]
+      notifies :stop, "service[#{service_name}]", :before
+      notifies :restart, "service[#{service_name}]", :immediately
     end
   end
 end
@@ -118,27 +136,49 @@ end
 # Deprecated - to be removed when I abandon the 2.0.x branch of LXD
 action :rename do
   return if new_bridge?
-  unless current_resource.network_name == new_resource.network_name
-    converge_by "renaming network to (#{new_resource.network_name})" do
-      shell_out! "sed -i '/^LXD_BRIDGE=/s/=\".*\"/=\"#{new_resource.network_name}\"/' #{OLD_BRIDGE_FILE}"
+  service_name = node['lsb']['codename'] == 'trusty' ? 'lxd' : 'lxd-bridge'
+  service service_name do
+    action :nothing
+  end
+
+  execute 'rename' do
+    command "sed -i '/^LXD_BRIDGE=/s/=\".*\"/=\"#{new_resource.network_name}\"/' #{OLD_BRIDGE_FILE}"
+    notifies :stop, "service[#{service_name}]", :before unless (service_name == 'lxd') && old_bridge_is_deleted?
+    notifies :start, "service[#{service_name}]", :immediate
+    not_if { network_exists? }
+  end
+  ruby_block 'verify' do
+    block do
       raise "Unknown error attempting to rename bridge interface to (#{new_resource.network_name})" unless network_exists?
-      service 'lxd-bridge' do
-        action :restart
-      end
     end
+    action :nothing
+    subscribes :run, 'execute[rename]', :immediate
   end
 end
 
 action :delete do
   return unless network_exists?
-  converge_by "deleting LXD network (#{new_resource.network_name})" do
-    if new_bridge?
+  if new_bridge?
+    converge_by "deleting LXD network (#{new_resource.network_name})" do
       lxd.exec! "lxc network delete #{network_name}"
-    else
-      service 'lxd-bridge' do
-        action [:stop, :disable]
-      end
-      return
+    end
+  else
+    service_name = node['lsb']['codename'] == 'trusty' ? 'lxd' : 'lxd-bridge'
+    service service_name do
+      action :enable
+    end
+    template OLD_BRIDGE_FILE do
+      source 'lxd-bridge.erb'
+      variables resource: {
+        network_name: '',
+        use_lxd_bridge: 'false',
+      }
+      owner 'root'
+      group 'root'
+      mode '0644'
+      action :create
+      notifies :stop, "service[#{service_name}]", :before unless (service_name == 'lxd') && old_bridge_is_deleted?
+      notifies :start, "service[#{service_name}]", :immediate
     end
   end
 end
@@ -154,14 +194,21 @@ action_class do
 
   def new_bridge?
     info['api_extensions'].index 'network'
+  rescue Mixlib::ShellOut::ShellCommandFailed
+    # escape clause to allow reconfiguring a borked old-bridge
+    raise unless ::File.exist?('/etc/default/lxd-bridge')
+    false
+  end
+
+  def old_bridge_is_deleted?
+    !shell_out("grep 'USE_LXD_BRIDGE=\"false\"' #{OLD_BRIDGE_FILE}").error?
   end
 
   OLD_BRIDGE_FILE = '/etc/default/lxd-bridge'.freeze
 
   def network_exists?
-    unless new_bridge?
-      return new_resource.network_name == shell_out!("sed -n '/^LXD_BRIDGE=/s/.*=\"\\(.*\\)\"/\\1/p' #{OLD_BRIDGE_FILE}").stdout.strip
-    end
+    return (new_resource.network_name == shell_out!("sed -n '/^LXD_BRIDGE=/s/.*=\"\\(.*\\)\"/\\1/p' #{OLD_BRIDGE_FILE}").stdout.strip) unless new_bridge?
+
     lxd.exec! "lxc network show #{new_resource.network_name}"
     return true
   rescue Mixlib::ShellOut::ShellCommandFailed
@@ -207,8 +254,9 @@ action_class do
   end
 
   def old_ipv4_dhcp_range(cidr, new_range)
-    return new_range if new_range
+    return new_range unless new_range.to_s == 'auto'
     return nil unless cidr
+    # new_range should now be :auto
     mask = ipv4_netmask(cidr).split('.').map(&:to_i)
     flip = mask.map { |v| 255 - v }
     host = cidr.split('/')[0].split('.').map(&:to_i)

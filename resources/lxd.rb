@@ -3,7 +3,7 @@ require 'yaml'
 require 'pp'
 
 property :server_path, String, default: '/var/lib/lxd', identity: true
-property :branch, Symbol, default: :lts, equal_to: [:feature, :lts]
+property :branch, Symbol, default: :feature, equal_to: [:feature, :lts]
 property :auto_install, [true, false], default: true, desired_state: false
 property :auto_upgrade, [true, false], default: true, desired_state: false
 property :version, String

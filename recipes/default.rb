@@ -5,6 +5,6 @@ lxd 'default' do
   trust_password 'blahsee'
 end
 
-lxd_network 'lxdbr0' do
+lxd_network 'lxdbr1' do
   action [:rename, :create]
 end

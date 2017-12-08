@@ -6,6 +6,9 @@
 # DO NOT MODIFY.  Any changes will be overwritten, and could cause error conditions.
 #
 
+<% if @resource[:use_lxd_bridge] -%>
+USE_LXD_BRIDGE="<%= @resource[:use_lxd_bridge] %>"
+<% end -%>
 LXD_BRIDGE="<%= @resource[:network_name] %>"
 <% if @resource[:raw_dnsmasq] -%>
 LXD_CONFILE="<%= @resource[:raw_dnsmasq] %>"

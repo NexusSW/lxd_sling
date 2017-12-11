@@ -67,7 +67,7 @@ class Chef::Recipe::LXD
   end
 
   def password_hash(password, salt = nil)
-    iter = 20000
+    iter = 21453
     digest = OpenSSL::Digest::SHA512.new
     keylen = digest.digest_length
     salt ||= OpenSSL::Random.random_bytes(keylen)

@@ -13,7 +13,9 @@ LXD_BRIDGE="<%= @resource[:network_name] %>"
 <% if @resource[:raw_dnsmasq] -%>
 LXD_CONFILE="<%= @resource[:raw_dnsmasq] %>"
 <% end -%>
-# LXD_DOMAIN="lxd"
+<% if @resource[:dns_domain] -%>
+LXD_DOMAIN="<%= @resource[:dns_domain] %>"
+<% end -%>
 <% if @resource[:ipv4_address] -%>
 LXD_IPV4_ADDR="<%= @resource[:ipv4_address][%r{(.*)/.*}, 1] %>"
 <% if @resource[:ipv4_netmask] -%>

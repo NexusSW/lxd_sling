@@ -6,5 +6,6 @@ lxd 'default' do
 end
 
 lxd_network 'lxdbr0' do
+  ipv4_address :auto
   action [:rename, :create]
 end

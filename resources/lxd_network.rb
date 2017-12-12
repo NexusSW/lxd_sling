@@ -5,20 +5,24 @@ property :network_name, String, name_property: true
 property :server_path, String, default: '/var/lib/lxd', identity: true
 property :profiles, Array, coerce: ->(profile) { [profile].flatten }
 
-property :bridge_driver, Symbol, equal_to: [:native, :openvswitch], default: :native
-property :bridge_external_interfaces, String, coerce: ->(iface) { iface.is_a?(String) ? iface : iface.join(',') }, key_name: 'bridge.external_interfaces'
-property :bridge_mode, Symbol, equal_to: [:standard, :fan], default: :standard
-property :bridge_mtu, Integer, default: 1500
+property :bridge_driver, Symbol, equal_to: [:native, :openvswitch], default: :native, coerce: ->(val) { val.to_sym }
+property :bridge_external_interfaces, String, coerce: ->(iface) { iface.is_a?(String) ? iface : iface.join(',') }
+property :bridge_mode, Symbol, equal_to: [:standard, :fan], default: :standard, coerce: ->(val) { val.to_sym }
+property :bridge_mtu, Integer, default: 1500, coerce: ->(val) { val.to_i }
 
 property :raw_dnsmasq, String
 property :dns_domain, String, default: 'lxd'
-property :dns_mode, Symbol, equal_to: [:none, :managed, :dynamic], default: :managed
+property :dns_mode, Symbol, equal_to: [:none, :managed, :dynamic], default: :managed, coerce: ->(val) { val.to_sym }
+
+property :fan_overlay_subnet, String, default: '240.0.0.0/8'
+property :fan_type, Symbol, equal_to: [:vxlan, :ipip], default: :vxlan, coerce: ->(val) { val.to_sym }
+property :fan_underlay_subnet, String
 
 property :ipv4_address, [String, Symbol], default: :auto, callbacks: {
   'Invalid IPv4 address' => ->(addr) { addr.is_a?(String) || [:auto, :none].include?(addr) },
 }
 property :ipv4_dhcp, [true, false], default: true, coerce: ->(val) { val.is_a?(String) ? val == 'true' : val }
-property :ipv4_dhcp_expiry, Integer, default: 3600
+property :ipv4_dhcp_expiry, Integer, default: 3600, coerce: ->(val) { val.to_i }
 property :ipv4_dhcp_ranges, [String, Symbol], default: :auto, coerce: ->(range) { (range.is_a?(String) || range == :auto) ? range : range.join(',') }, callbacks: {
   'Invalid IPv4 DHCP range' => ->(range) { range.is_a?(String) || (range == :auto) },
 }
@@ -31,7 +35,7 @@ property :ipv6_address, [String, Symbol], default: :auto, callbacks: {
   'Invalid IPv6 address' => ->(addr) { addr.is_a?(String) || [:auto, :none].include?(addr) },
 }
 property :ipv6_dhcp, [true, false], default: true, coerce: ->(val) { val.is_a?(String) ? val == 'true' : val }
-property :ipv6_dhcp_expiry, Integer, default: 3600
+property :ipv6_dhcp_expiry, Integer, default: 3600, coerce: ->(val) { val.to_i }
 property :ipv6_dhcp_ranges, String, coerce: ->(range) { range.is_a?(String) ? range : range.join(',') }
 property :ipv6_dhcp_stateful, [true, false], default: false, coerce: ->(val) { val.is_a?(String) ? val == 'true' : val }
 property :ipv6_firewall, [true, false], default: true, coerce: ->(val) { val.is_a?(String) ? val == 'true' : val }
@@ -96,6 +100,12 @@ load_current_value do
 end
 
 EXCLUDE_AUTO_PROPS = [:network_name, :server_path, :profiles].freeze
+KEY_OVERRIDES = {
+  fan_underlay_subnet: 'fan.underlay_subnet',
+  fan_overlay_subnet: 'fan.overlay_subnet',
+  bridge_external_interfaces: 'bridge.external_interfaces',
+}.freeze
+
 action :create do
   return action_modify if network_exists?
   raise "The current LXD bridge does not have the same name (#{new_resource.network_name}).  Use the :rename action if this is intended." unless new_bridge?
@@ -104,7 +114,12 @@ action :create do
   new_resource.class.state_properties.each do |prop|
     val = new_resource.send(prop.name)
     next if EXCLUDE_AUTO_PROPS.include? prop.name
-    next unless property_is_set?(prop.name) # my property defaults are intended to match LXD's defaults (beware the conditional default on the nat settings)
+    # my property defaults are intended to match LXD's defaults
+    # - beware the conditional default on the nat settings
+    # - and also of differing behaviours between releases after setup
+    #   - trusty is unconfigured and has no lxdbr0
+    #   - xenial has lxdbr0 and has 'none' for the addresses and 'dynamic' for dns.mode
+    next unless property_is_set?(prop.name)
     next if (prop.name == :ipv4_dhcp_ranges) && (val.to_s == 'auto') # 'auto' is an invalid value, but I needed to introduce it for an edge case with the old_bridge
     cmd << " #{key_name(prop)}='#{val}'" if val
   end
@@ -119,7 +134,20 @@ action :modify do
     raise "LXD network (#{network_name}) does not exist."
   end
   if new_bridge?
+    new_resource.class.state_properties.each do |prop|
+      val = new_resource.send(prop.name)
+      next if EXCLUDE_AUTO_PROPS.include? prop.name
+      if val.to_s == 'auto'
+        next if prop.name == :ipv4_dhcp_ranges # 'auto' is an invalid value, but I needed to introduce it for an edge case with the old_bridge
 
+        # don't reapply 'auto' if a value has already been set (it'll change the value)
+        #   e.g. ipv4_address: current_resource contains the automatically generated address, while new_resource contains 'auto' so it wants to converge
+        next if current_resource.send(prop.name)
+      end
+      converge_if_changed prop.name do
+        lxd.exec! "lxc network set #{new_resource.network_name} #{key_name(prop)} '#{val}'"
+      end
+    end
   else # old bridge
     ipv4 = resolve_ipv4(new_resource.ipv4_address)
     ipv6 = resolve_ipv6(new_resource.ipv6_address)
@@ -233,7 +261,7 @@ action_class do
   end
 
   def key_name(property)
-    property.options.has_key?(:key_name) ? property.options[:key_name] : property.name.to_s.tr('_', '.')
+    KEY_OVERRIDES.key?(property.name) ? KEY_OVERRIDES[property.name] : property.name.to_s.tr('_', '.')
   end
 
   OLD_BRIDGE_FILE = '/etc/default/lxd-bridge'.freeze

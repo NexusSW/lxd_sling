@@ -6,6 +6,7 @@ property :server_path, String, default: '/var/lib/lxd', identity: true
 property :branch, Symbol, default: :feature, equal_to: [:feature, :lts]
 property :auto_install, [true, false], default: true, desired_state: false
 property :auto_upgrade, [true, false], default: true, desired_state: false
+property :keep_bridge, [true, false], default: false, desired_state: false
 property :version, String
 
 # Config properties
@@ -51,6 +52,10 @@ action :upgrade do
   edit_resource!(:package, 'lxd') do
     action :upgrade
   end
+  lxd_network 'lxdbr0' do
+    action :delete
+    ignore_failure true # TODO: needs tested - i 'think' lxd will error if the bridge is in use, and that is 'ok', and preferred.  If it doesn't, then I could code that
+  end if !new_resource.keep_bridge && lxd.installed?(:lts) && (new_resource.branch == :feature)
 end
 
 action :install do

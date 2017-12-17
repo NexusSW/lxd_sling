@@ -5,7 +5,14 @@ lxd 'default' do
   trust_password 'blahsee'
 end
 
-lxd_network 'lxdbr0' do
-  ipv4_address :auto
-  action [:rename, :create]
+lxd_network 'lxdbr0'
+
+lxd_profile 'default'
+
+lxd_device 'eth0' do
+  location :profile
+  location_name 'default'
+  type :nic
+  parent 'lxdbr0'
+  nictype :bridged
 end

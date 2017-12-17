@@ -52,10 +52,20 @@ action :upgrade do
   edit_resource!(:package, 'lxd') do
     action :upgrade
   end
-  lxd_network 'lxdbr0' do
-    action :delete
-    ignore_failure true # TODO: needs tested - i 'think' lxd will error if the bridge is in use, and that is 'ok', and preferred.  If it doesn't, then I could code that
-  end if !new_resource.keep_bridge && lxd.installed?(:lts) && (new_resource.branch == :feature)
+  # by default, lxd does not install a bridge - so for parity with :install, remove the inherited bridge, which is whacked, anyways, if it was a vanilla 2.0.x default bridge (xenial)
+  # the thinking is that the consumer will be setting one up in their recipe anyways, because they'll need to for parity with other dists
+  if !new_resource.keep_bridge && lxd.installed?(:lts) && (new_resource.branch == :feature)
+    lxd_network 'lxdbr0' do
+      action :delete
+      ignore_failure true # TODO: needs tested - i 'think' lxd will error if the bridge is in use, and that is 'ok', and preferred.  If it doesn't, then I could code that
+    end
+    lxd_device 'eth0' do
+      location :profile
+      location_name 'default'
+      action :nothing
+      subscribes :delete, 'lxd_network[lxdbr0]', :immediately
+    end
+  end
 end
 
 action :install do

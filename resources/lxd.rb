@@ -4,8 +4,8 @@ require 'pp'
 
 property :server_path, String, default: '/var/lib/lxd', identity: true
 property :branch, Symbol, default: :feature, equal_to: [:feature, :lts]
-property :auto_install, [true, false], default: true, desired_state: false
-property :auto_upgrade, [true, false], default: true, desired_state: false
+property :auto_install, [true, false], default: false, desired_state: false
+property :auto_upgrade, [true, false], default: false, desired_state: false
 property :keep_bridge, [true, false], default: false, desired_state: false
 property :version, String
 
@@ -52,7 +52,7 @@ action :upgrade do
   edit_resource!(:package, 'lxd') do
     action :upgrade
   end
-  # by default, lxd does not install a bridge - so for parity with :install, remove the inherited bridge, which is whacked, anyways, if it was a vanilla 2.0.x default bridge (xenial)
+  # by default, newer lxd does not install a bridge - so for parity with :install, remove the inherited bridge, which is whacked, anyways, if it was a vanilla 2.0.x default bridge (xenial)
   # the thinking is that the consumer will be setting one up in their recipe anyways, because they'll need to for parity with other dists
   if !new_resource.keep_bridge && lxd.installed?(:lts) && (new_resource.branch == :feature)
     lxd_network 'lxdbr0' do
@@ -63,7 +63,7 @@ action :upgrade do
       location :profile
       location_name 'default'
       action :nothing
-      subscribes :delete, 'lxd_network[lxdbr0]', :immediately
+      subscribes :delete, 'lxd_network[lxdbr0]', :before
     end
   end
 end
@@ -80,7 +80,7 @@ action :init do
 
   we_installed = false
   was_installed = lxd.installed?
-  if new_resource.auto_install # always install regardless of necessity in hopes of picking up security updates
+  if new_resource.auto_install || new_resource.auto_upgrade
     new_resource.auto_upgrade ? action_upgrade : action_install
     we_installed = true unless was_installed
   end
@@ -224,6 +224,6 @@ action_class do
 
   # watch out:  the only caller atm is action_init, which incorporates auto_install
   def should_install?(branch)
-    new_resource.auto_install && !lxd.installed?(branch) && can_install?(branch)
+    (new_resource.auto_install || new_resource.auto_upgrade) && !lxd.installed?(branch) && can_install?(branch)
   end
 end

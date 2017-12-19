@@ -16,15 +16,15 @@ lxd_device 'eth0' do
 end
 
 if ENV['TRAVIS'] == 'true'
-  directory "#{ENV['HOME']}/config" do
+  directory "#{ENV['HOME']}/.config" do
     owner 'travis'
   end
 
-  directory "#{ENV['HOME']}/config/.lxc" do
+  directory "#{ENV['HOME']}/.config/lxc" do
     owner 'travis'
   end
 
-  file "#{ENV['HOME']}/config/.lxc/config.yml" do
+  file "#{ENV['HOME']}/.config/lxc/config.yml" do
     owner 'travis'
   end
 end

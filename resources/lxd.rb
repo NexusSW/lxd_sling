@@ -117,6 +117,7 @@ action :init do
   group 'lxd' do
     members new_resource.users
     action :modify
+    append true
   end if property_is_set? :users
 
   file File.join(new_resource.server_path, 'server.crt') do

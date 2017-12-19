@@ -3,8 +3,8 @@ driver:
   name: lxd
   image_server: https://cloud-images.ubuntu.com/releases
   ssh_login: 'ubuntu'
-#  config:
-#    security.nesting: true
+  config:
+    security.nesting: true
 #    security.privileged: true
 
 provisioner:

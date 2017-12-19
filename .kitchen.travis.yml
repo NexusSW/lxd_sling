@@ -1,7 +1,6 @@
-driver: exec
-
 platforms:
   - name: local
+    driver: exec
 
 suites:
   - name: travis

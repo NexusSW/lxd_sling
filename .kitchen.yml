@@ -13,7 +13,7 @@ provisioner:
 verifier:
   name: inspec
 
-# transport: ssh
+transport: lxd
 
 platforms:
   - name: ubuntu-14.04
@@ -34,7 +34,7 @@ platforms:
 suites:
   - name: lxd
     run_list:
-      - lxd_nexus::default
+      - test::default
     verifier:
       inspec_tests:
         - test/smoke/default

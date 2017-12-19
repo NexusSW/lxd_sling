@@ -58,6 +58,7 @@ action :upgrade do
     lxd_network 'lxdbr0' do
       action :delete
       ignore_failure true # TODO: needs tested - i 'think' lxd will error if the bridge is in use, and that is 'ok', and preferred.  If it doesn't, then I could code that
+      only_if "grep '^LXD_IPV6_PROXY=\"true\"' /etc/default/lxd-bridge.upgraded"
     end
     lxd_device 'eth0' do
       location :profile

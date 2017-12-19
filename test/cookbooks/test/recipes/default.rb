@@ -1,6 +1,7 @@
 lxd 'default' do
   network_address '[::]'
   auto_upgrade true
+  users 'travis' if ENV['TRAVIS'] == 'true'
 end
 
 lxd_network 'lxdbr0'

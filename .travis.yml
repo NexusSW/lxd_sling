@@ -5,4 +5,4 @@ install:
 - gem install test-kitchen berkshelf kitchen-lxd_nexus kitchen-inspec
 - KITCHEN_LOCAL_YAML='.kitchen.travis.yml' kitchen converge travis
 script:
-- sudo su -l $USER -c "cd $(pwd) && rvm use ${RUBY_VERSION/ruby-/} && kitchen test"
+- sudo su -l $USER -c "cd $(pwd) && rvm use ${RUBY_VERSION/ruby-/} && kitchen converge"

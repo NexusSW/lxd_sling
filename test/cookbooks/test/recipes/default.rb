@@ -14,3 +14,17 @@ lxd_device 'eth0' do
   parent 'lxdbr0'
   nictype :bridged
 end
+
+if ENV['TRAVIS'] == 'true'
+  directory "#{ENV['HOME']}/config" do
+    owner 'travis'
+  end
+
+  directory "#{ENV['HOME']}/config/.lxc" do
+    owner 'travis'
+  end
+
+  file "#{ENV['HOME']}/config/.lxc/config.yml" do
+    owner 'travis'
+  end
+end

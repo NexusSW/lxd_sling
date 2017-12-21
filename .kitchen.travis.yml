@@ -1,0 +1,7 @@
+platforms:
+  - name: local
+    driver: exec
+
+suites:
+  - name: travis
+    run_list: test::default

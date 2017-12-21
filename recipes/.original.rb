@@ -80,9 +80,9 @@ unless node['username'] == 'travis'
     only_if { node['lsb']['codename'] == 'trusty' }
   end
   gem_package 'bundler'
-#  execute 'bundle install' do
-#    cwd '/vagrant'
-#  end
+  #  execute 'bundle install' do
+  #    cwd '/vagrant'
+  #  end
 end
 
 group 'lxd' do

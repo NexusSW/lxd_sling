@@ -368,12 +368,12 @@ action_class do
   def resolve_ipv4_nat(val)
     return false if val == false
     return true if new_resource.ipv4_address == :auto
-    val
+    val == true
   end
 
   def resolve_ipv6_nat(val)
     return false if val == false
     return true if new_resource.ipv6_address == :auto
-    val
+    val == true
   end
 end

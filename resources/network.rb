@@ -318,6 +318,7 @@ action_class do
   end
 
   def old_ipv4_dhcp_max(range)
+    return nil unless range
     rawaddrs = range.split('-').map { |addr| addr.split('.').map(&:to_i) }
     addrs = [0, 0]
     addrs.each_index do |idx|

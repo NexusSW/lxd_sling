@@ -226,6 +226,7 @@ action :delete do
     end
     template OLD_BRIDGE_FILE do
       source 'lxd-bridge.erb'
+      cookbook 'lxd_nexus'
       variables resource: {
         network_name: '',
         use_lxd_bridge: 'false',

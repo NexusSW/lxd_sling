@@ -10,8 +10,8 @@ driver:
 provisioner:
   name: chef_zero
 
-verifier:
-  name: inspec
+# verifier:
+#   name: inspec
 
 transport: lxd
 

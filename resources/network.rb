@@ -159,6 +159,7 @@ action :modify do
     end
     template OLD_BRIDGE_FILE do
       source 'lxd-bridge.erb'
+      cookbook 'lxd_nexus'
       variables resource: {
         network_name: new_resource.network_name,
         raw_dnsmasq: new_resource.raw_dnsmasq,

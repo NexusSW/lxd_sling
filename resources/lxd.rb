@@ -209,19 +209,22 @@ action_class do
     # Recommendations is to use backports, or snap packages
     #   backports will eventually be phased as well
     #   leaving long term methods being what's installed by the distro and/or what's in their core package system, or install by snap
-    use_repo = (new_resource.branch == :feature) || property_is_set?(:version)
+    use_repo = false # (new_resource.branch == :feature) || property_is_set?(:version)
     edit_resource!(:apt_repository, 'lxd') do
       only_if { use_repo }
     end
+
+    edit_resource!(:package, 'lxd') do
+      default_release 'xenial-backports'
+    end if (node['lsb']['codename'] == 'xenial') && (new_resource.branch == :feature)
   end
 
   def can_install?(_branch)
-    node['platform'] == 'ubuntu'
-    # return false unless node['platform'] == 'ubuntu'
-    # case branch
-    # when :lts then node['platform_version'].split('.')[0].to_i >= 14
-    # when :feature then node['platform_version'].split('.')[0].to_i >= 16
-    # end
+    return false unless node['platform'] == 'ubuntu'
+    case new_resource.branch
+    when :lts then node['platform_version'].split('.')[0].to_i >= 14
+    when :feature then node['platform_version'].split('.')[0].to_i >= 16
+    end
   end
 
   # watch out:  the only caller atm is action_init, which incorporates auto_install

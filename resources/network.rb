@@ -157,6 +157,7 @@ action :modify do
       action [:enable, :start] if service_name == 'lxd-bridge'
       retries 2 # on trusty - :stop works, but errors, if the network is presently 'deleted'
     end
+    ipv4range = old_ipv4_dhcp_range(ipv4, new_resource.ipv4_dhcp_ranges)
     template OLD_BRIDGE_FILE do
       source 'lxd-bridge.erb'
       cookbook 'lxd_nexus'
@@ -166,7 +167,8 @@ action :modify do
         dns_domain: new_resource.dns_domain,
         ipv4_address: ipv4,
         ipv4_netmask: ipv4_netmask(ipv4),
-        ipv4_dhcp_ranges: old_ipv4_dhcp_range(ipv4, new_resource.ipv4_dhcp_ranges),
+        ipv4_dhcp_ranges: ipv4range,
+        ipv4_dhcp_max: old_ipv4_dhcp_max(ipv4range),
         ipv4_nat: resolve_ipv4_nat(new_resource.ipv4_nat),
         ipv6_address: ipv6,
         ipv6_nat: resolve_ipv6_nat(new_resource.ipv6_nat),
@@ -313,6 +315,18 @@ action_class do
       mask[part] <<= (8 - thisbits)
     end
     mask.join '.'
+  end
+
+  def old_ipv4_dhcp_max(range)
+    rawaddrs = range.split('-').map { |addr| addr.split('.').map(&:to_i) }
+    addrs = [0, 0]
+    addrs.each_index do |idx|
+      rawaddrs[idx].each do |part|
+        addrs[idx] <<= 8
+        addrs[idx] += part
+      end
+    end
+    addrs[1] - addrs[0] + 1
   end
 
   def old_ipv4_dhcp_range(cidr, new_range)

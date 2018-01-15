@@ -5,9 +5,7 @@ lxd 'default' do
   users 'travis' if ENV['TRAVIS'] == 'true'
 end
 
-lxd_network 'lxdbr0' do
-  ipv6_address :none if ENV['TRAVIS'] == 'true'
-end
+lxd_network 'lxdbr0'
 lxd_profile 'default'
 
 lxd_device 'eth0' do

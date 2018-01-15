@@ -26,6 +26,9 @@ LXD_IPV4_NETWORK="<%= @resource[:ipv4_address] %>"
 <% if @resource[:ipv4_dhcp_ranges] -%>
 LXD_IPV4_DHCP_RANGE="<%= @resource[:ipv4_dhcp_ranges].tr('-', ',') %>"
 <% end -%>
+<% if @resource[:ipv4_dhcp_max] -%>
+LXD_IPV4_DHCP_MAX="<%= @resource[:ipv4_dhcp_max] %>"
+<% end -%>
 <% if @resource[:ipv4_nat] -%>
 LXD_IPV4_NAT="<%= @resource[:ipv4_nat] %>"
 <% end -%>

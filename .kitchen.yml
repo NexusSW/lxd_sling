@@ -1,7 +1,7 @@
 ---
 driver:
   name: lxd
-#  image_server: https://cloud-images.ubuntu.com/releases
+  image_server: https://cloud-images.ubuntu.com/releases
   ssh_login: 'ubuntu'
   config:
     security.nesting: true

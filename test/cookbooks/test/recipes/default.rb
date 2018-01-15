@@ -19,13 +19,17 @@ end
 if ENV['TRAVIS'] == 'true'
   directory "#{ENV['HOME']}/.config" do
     owner 'travis'
+    group 'travis'
   end
 
   directory "#{ENV['HOME']}/.config/lxc" do
     owner 'travis'
+    group 'travis'
   end
 
   file "#{ENV['HOME']}/.config/lxc/config.yml" do
     owner 'travis'
+    group 'travis'
+    action :delete
   end
 end

@@ -25,11 +25,11 @@ if ENV['TRAVIS'] == 'true'
   directory "#{ENV['HOME']}/.config/lxc" do
     owner 'travis'
     group 'travis'
+    notifies :run, 'execute[chown]', :immediately
   end
 
-  file "#{ENV['HOME']}/.config/lxc/config.yml" do
-    owner 'travis'
-    group 'travis'
-    action :delete
+  execute 'chown' do
+    command "chown travis:travis #{ENV['HOME']}/.config/lxc/*"
+    action :nothing
   end
 end

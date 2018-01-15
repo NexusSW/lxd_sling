@@ -296,7 +296,7 @@ action_class do
 
     net = "fd#{Random.rand(256).to_s(16).rjust(2, '0')}:#{Random.rand(65536).to_s(16)}:#{Random.rand(65536).to_s(16)}:#{Random.rand(65536).to_s(16)}:"
     # TODO: This collision detection should check all interfaces
-    return resolve_ipv6(address) if node['ip6address'].start_with?(net) # redo upon collision via recursion
+    return resolve_ipv6(address) if node['ip6address'] && node['ip6address'].start_with?(net) # redo upon collision via recursion
     "#{net}:1/64"
   end
 

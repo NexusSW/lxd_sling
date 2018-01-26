@@ -1,7 +1,5 @@
 require 'yaml'
 
-require 'pp'
-
 property :server_path, String, default: '/var/lib/lxd', identity: true
 property :branch, Symbol, default: :feature, equal_to: [:feature, :lts]
 property :auto_install, [true, false], default: false, desired_state: false
@@ -48,10 +46,8 @@ end
 #       bear in mind that none of my upstream work supports this (yet) (if i need to incorporate my upstream work)
 
 action :upgrade do
-  do_install
-  edit_resource!(:package, 'lxd') do
-    action :upgrade
-  end
+  do_install :upgrade
+
   # by default, newer lxd does not install a bridge - so for parity with :install, remove the inherited bridge, which is whacked, anyways, if it was a vanilla 2.0.x default bridge (xenial)
   # the thinking is that the consumer will be setting one up in their recipe anyways, because they'll need to for parity with other dists
   if !new_resource.keep_bridge && lxd.installed?(:lts) && (new_resource.branch == :feature)
@@ -157,66 +153,18 @@ action_class do
     @lxd ||= Chef::Recipe::LXD.new node, new_resource.server_path
   end
 
-  def do_install
+  def do_install(perform = :install)
     raise "Cannot install the #{new_resource.branch} branch of LXD on this version of this platform (#{node['lsb']['codename']})" unless can_install?(new_resource.branch)
     warn 'The LTS release of LXD was requested, but a newer version is already installed...  Continuing.' if (new_resource.branch == :lts) && lxd.installed?(:feature)
 
-    include_recipe 'lxd::lxd_from_package'
+    apt_update 'update' if node['platform_family'] == 'debian'
 
-    # :lts is a soft-pin on the stable version of lxd
-    #   it 'should' be safe to not version pin on the :lts branch in order to receive security patches & fixes
-    #     unless you're super strict and/or want to control the rollout
-
-    # Trusty: no functioning package available by default
-    #   backports contains :lts 2.0.x
-    # Xenial: :lts package available by default 2.0.x
-    #   backports contains latest canonical CI validated :feature 2.x
-
-    # I'm not explicitly supporting downgrading - use a version pin (untested - it 'should' work?)
-    #
-    # 2.21 will be the final feature release before 3.0 alpha release in January
-    #   still TBD which will be in bionic - but I'm hoping 3.0?  That'll make things nice & consistent
-    #   the PPA is EOL after December, so the only install meduims will be backports & snap
-    #     TBD if there will be a backports in bionic
-    #
-    # Once I'm done with this cookbook, I'm going to come back through here and rewrite to allow for snap installs
-    #   snap appears to be the only way we'll be able to install on other distros
-    #   the challenge will be the change in folder structure, so try to stay away from specifics as much as possible in the mean time
-    #   I might wind up going away from the lxd cookbook if i have to do too much more myself
-    #     the use of their recipes are becoming fringe, so may as well keep it all in house
-
-    edit_resource!(:package, 'lxd') do
-      default_release 'trusty-backports'
-    end if (node['lsb']['codename'] == 'trusty') && (new_resource.branch == :lts)
-
-    # Assumption for bionic:
-    #   just like xenial, stable repo will have whatver they call :lts
-    #     and we can just use the lxd repo to get the feature branch instead of backports
-    # so do I really need the lts16/18 aliases?
-    # it appears that the distro will dictate what version you get with :lts
-    #   except for the above case with trusty, which will go away with bionic's release
-
-    # uncomment in this block if propwerty_is_set? doesn't distinguish between caller set & load_current_value
-    if property_is_set? :version
-      # node.normal['lxd']['version_pin'] = new_resource.version
-      edit_resource!(:package, 'lxd') do
-        version new_resource.version
-        # version node['lxd']['version_pin']
-      end
+    package 'lxd' do
+      default_release 'trusty-backports' if (node['lsb']['codename'] == 'trusty') && (new_resource.branch == :lts)
+      default_release 'xenial-backports' if (node['lsb']['codename'] == 'xenial') && (new_resource.branch == :feature)
+      version new_resource.version if property_is_set? :version
+      action [perform]
     end
-
-    # This PPA will be gone after December...
-    # Recommendations is to use backports, or snap packages
-    #   backports will eventually be phased as well
-    #   leaving long term methods being what's installed by the distro and/or what's in their core package system, or install by snap
-    use_repo = false # (new_resource.branch == :feature) || property_is_set?(:version)
-    edit_resource!(:apt_repository, 'lxd') do
-      only_if { use_repo }
-    end
-
-    edit_resource!(:package, 'lxd') do
-      default_release 'xenial-backports'
-    end if (node['lsb']['codename'] == 'xenial') && (new_resource.branch == :feature)
   end
 
   def can_install?(_branch)

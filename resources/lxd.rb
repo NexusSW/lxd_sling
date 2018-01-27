@@ -1,6 +1,6 @@
 require 'yaml'
 
-property :server_path, String, default: '/var/lib/lxd', identity: true
+property :server_path, String, identity: true # default: '/var/lib/lxd',
 property :branch, Symbol, default: :feature, equal_to: [:feature, :lts]
 property :auto_install, [true, false], default: false, desired_state: false
 property :auto_upgrade, [true, false], default: false, desired_state: false
@@ -13,14 +13,15 @@ property :network_port, String, default: '8443'
 property :trust_password, String, sensitive: true
 property :users, [Array, String]
 property :certificate_file, String
-property :certificate_key, String
-property :raw_config, Hash
+property :certificate_key, String # the filename isn't sensitive, but the contents are (handled on the File resource)
+# property :raw_config, Hash
 
 resource_name :lxd
 default_action :init
 
 load_current_value do
   lxd = Chef::Recipe::LXD.new node, server_path
+  server_path lxd.lxd_dir
   return unless lxd.installed?
   begin
     info = lxd.info
@@ -32,18 +33,18 @@ load_current_value do
   network_port address.slice!(/:[0-9]*$/).sub(':', '') if address
   network_address address if address
   branch lxd.installed?(:lts) ? :lts : :feature
-  raw_config info['config'] # TODO: normalize this to exclude any global configs that we seperately configure
-  version info['environment']['server_version'] # if node['lxd'] && node['lxd'].key?('version_pin')
+  # raw_config info['config'] # TODO: normalize this to exclude any global configs that we seperately configure
+  version info['environment']['server_version'].tr '"', ''
 end
 
 # the server_path property is included, but we're not supporting multiple installations of lxd
 # afaic just nest if you want to do some form of seperation (Issues and PR's welcome if you have a use case)
 # but the server_path property is there because it combines to form into some systemd service names
-#   just in case I need them later
+#   just in case I need them later - (this seems to be not true for snap installs)
+#   and I use it to locate the server certs
 #   and this allows the user to override that value in cases where 'they' did the multi-install and are just pointing us to it
 #     on that note, we'll go ahead and supply the `LXD_DIR=#{new_resource.server_path}` environment variable in our system calls
 #       that ends our support for this function
-#       bear in mind that none of my upstream work supports this (yet) (if i need to incorporate my upstream work)
 
 action :upgrade do
   do_install :upgrade
@@ -52,11 +53,13 @@ action :upgrade do
   # the thinking is that the consumer will be setting one up in their recipe anyways, because they'll need to for parity with other dists
   if !new_resource.keep_bridge && lxd.installed?(:lts) && (new_resource.branch == :feature)
     lxd_network 'lxdbr0' do
+      server_path new_resource.server_path
       action :delete
       ignore_failure true # TODO: needs tested - i 'think' lxd will error if the bridge is in use, and that is 'ok', and preferred.  If it doesn't, then I could code that
       only_if "grep '^LXD_IPV6_PROXY=\"true\"' /etc/default/lxd-bridge.upgraded"
     end
     lxd_device 'eth0' do
+      server_path new_resource.server_path
       location :profile
       location_name 'default'
       action :nothing
@@ -149,9 +152,7 @@ action :init do
 end
 
 action_class do
-  def lxd
-    @lxd ||= Chef::Recipe::LXD.new node, new_resource.server_path
-  end
+  include Chef::Recipe::LXD::ActionMixin
 
   def do_install(perform = :install)
     raise "Cannot install the #{new_resource.branch} branch of LXD on this version of this platform (#{node['lsb']['codename']})" unless can_install?(new_resource.branch)
@@ -171,8 +172,12 @@ action_class do
     return false unless node['platform'] == 'ubuntu'
     case new_resource.branch
     when :lts then node['platform_version'].split('.')[0].to_i >= 14
-    when :feature then node['platform_version'].split('.')[0].to_i >= 16
+    when :feature then can_snap?
     end
+  end
+
+  def can_snap?
+    node['platform_version'].split('.')[0].to_i >= 16
   end
 
   # watch out:  the only caller atm is action_init, which incorporates auto_install

@@ -7,7 +7,7 @@ coercions = {
 }
 
 property :device_name, String, name_property: true
-property :server_path, String, default: '/var/lib/lxd', identity: true
+property :server_path, String, identity: true # default: '/var/lib/lxd',
 
 property :location, [:profile, :container], required: true, identity: true
 property :location_name, String, required: true, identity: true

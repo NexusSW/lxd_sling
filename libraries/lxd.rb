@@ -6,6 +6,13 @@ class Chef::Recipe::LXD
   include Chef::Mixin::ShellOut
 
   def initialize(node, lxd_dir)
+    unless lxd_dir
+      begin
+        lxd_dir = shell_out('snap list lxd').error? ?  '/var/lib/lxd' : '/var/snap/lxd/common/lxd'
+      rescue Errno::ENOENT
+        lxd_dir = '/var/lib/lxd'
+      end
+    end
     @lxd_dir = lxd_dir
     @node = node
   end
@@ -23,7 +30,8 @@ class Chef::Recipe::LXD
   end
 
   def exec(cmd)
-    shell_out "env LXD_DIR=#{lxd_dir} #{cmd}"
+    env = "LXD_DIR=#{lxd_dir} " if lxd_dir
+    shell_out "env #{env}#{cmd}"
   end
 
   def exec_sensitive!(cmd)

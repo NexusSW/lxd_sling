@@ -2,13 +2,15 @@
 driver:
   name: lxd
   image_server: https://cloud-images.ubuntu.com/releases
-  ssh_login: 'ubuntu'
   config:
     security.nesting: true
 #    security.privileged: true
 
 provisioner:
   name: chef_zero
+  multiple_converge: 2
+  enforce_idempotency: true
+  deprecations_as_errors: true
 
 # verifier:
 #   name: inspec
@@ -18,18 +20,6 @@ transport: lxd
 platforms:
   - name: ubuntu-14.04
   - name: ubuntu-16.04
-#    driver:
-#      name: vagrant
-#      customize:
-#        memory: 512
-#        createhd:
-#          - filename: c:/windows/temp/lxd-storage.vdi
-#            size: 1024
-#        storageattach:
-#          - storagectl: SATA Controller
-#            port: 2
-#            type: hdd
-#            medium: c:/windows/temp/lxd-storage.vdi
 
 suites:
   - name: lxd

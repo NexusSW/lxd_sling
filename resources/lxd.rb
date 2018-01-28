@@ -19,6 +19,15 @@ property :certificate_key, String # the filename isn't sensitive, but the conten
 resource_name :lxd
 default_action :init
 
+# Strategy:  we'll always do a snap install when the feature branch is specified.  It's the only 'official' way afaik.
+#   and while we could get it from xenial-backports, I do believe that will version cap at 2.21
+# releases prior to Bionic will get 2.0.x when lts is specified.  Bionic will get 3.0.x.
+#   (basically whatever version is available in the official package repo)
+#   (i don't 'think' bionic-backports will be getting the 3.x feature packages - TBD)
+# when I get around to non-ubuntu images where lxd probably isn't in the dist repos...
+#   I might need to contrive some additional logic for verion resolution - TBD
+#     afaik snap will still be the primary means, but snap channels 'may' help with that
+
 load_current_value do
   lxd = Chef::Recipe::LXD.new node, server_path
   server_path lxd.lxd_dir
@@ -47,8 +56,6 @@ end
 #       that ends our support for this function
 
 action :upgrade do
-  do_install :upgrade
-
   # by default, newer lxd does not install a bridge - so for parity with :install, remove the inherited bridge, which is whacked, anyways, if it was a vanilla 2.0.x default bridge (xenial)
   # the thinking is that the consumer will be setting one up in their recipe anyways, because they'll need to for parity with other dists
   if !new_resource.keep_bridge && lxd.installed?(:lts) && (new_resource.branch == :feature)
@@ -56,7 +63,7 @@ action :upgrade do
       server_path new_resource.server_path
       action :delete
       ignore_failure true # TODO: needs tested - i 'think' lxd will error if the bridge is in use, and that is 'ok', and preferred.  If it doesn't, then I could code that
-      only_if "grep '^LXD_IPV6_PROXY=\"true\"' /etc/default/lxd-bridge.upgraded"
+      only_if "grep '^LXD_IPV6_PROXY=\"true\"' /etc/default/lxd-bridge"
     end
     lxd_device 'eth0' do
       server_path new_resource.server_path
@@ -66,6 +73,8 @@ action :upgrade do
       subscribes :delete, 'lxd_network[lxdbr0]', :before
     end
   end
+
+  do_install :upgrade
 end
 
 action :install do
@@ -85,8 +94,12 @@ action :init do
     we_installed = true unless was_installed
   end
 
+  # just in case we just migrated from ppa to snap
+  lxd.lxd_dir = lxd.default_lxd_dir if lxd.default_lxd_dir?
+
+  service_name = snap? ? 'snap.lxd.daemon' : 'lxd'
   # run `lxd init --auto` - though not strictly required, it's just good form...
-  service 'lxd' do
+  service service_name do
     action [:enable, :start]
   end
   restart_service = false
@@ -119,7 +132,7 @@ action :init do
     append true
   end if property_is_set? :users
 
-  file File.join(new_resource.server_path, 'server.crt') do
+  file File.join(lxd.lxd_dir, 'server.crt') do
     content File.read(new_resource.certificate_file)
     owner 'root'
     group 'root'
@@ -128,7 +141,7 @@ action :init do
     notifies :run, 'ruby_block[delayed-restart-lxd]', :immediately
   end if property_is_set? :certificate_file
 
-  file File.join(new_resource.server_path, 'server.key') do
+  file File.join(lxd.lxd_dir, 'server.key') do
     content File.read(new_resource.certificate_key)
     owner 'root'
     group 'root'
@@ -145,8 +158,13 @@ action :init do
     action :nothing
   end
 
-  service 'lxd' do
+  service service_name do
     action :restart
+    only_if { restart_service }
+  end
+
+  execute 'waitready' do
+    command 'lxd waitready --timeout 300'
     only_if { restart_service }
   end
 end
@@ -160,11 +178,33 @@ action_class do
 
     apt_update 'update' if node['platform_family'] == 'debian'
 
-    package 'lxd' do
-      default_release 'trusty-backports' if (node['lsb']['codename'] == 'trusty') && (new_resource.branch == :lts)
-      default_release 'xenial-backports' if (node['lsb']['codename'] == 'xenial') && (new_resource.branch == :feature)
-      version new_resource.version if property_is_set? :version
-      action [perform]
+    if should_snap?
+      package %w(fuse squashfuse)
+      package 'snapd' # watchout: there could be PATH issues here, after this, if snap was not previously installed...
+      execute 'install-lxd' do
+        command 'snap install lxd'
+        not_if 'snap list lxd'
+      end
+      # wait for startup or migrate will fail
+      execute 'waitready' do
+        command '/snap/bin/lxd waitready --timeout 300'
+        action :nothing
+        subscribes :run, 'execute[install-lxd]', :immediately
+      end
+      execute 'migrate' do
+        command 'lxd.migrate --yes'
+        only_if 'test -f /usr/bin/lxc'
+      end
+      file '/etc/default/lxd-bridge' do
+        action :delete
+      end
+    else
+      package 'lxd' do
+        default_release 'trusty-backports' if (node['lsb']['codename'] == 'trusty') && (new_resource.branch == :lts)
+        default_release 'xenial-backports' if (node['lsb']['codename'] == 'xenial') && (new_resource.branch == :feature)
+        version new_resource.version if property_is_set? :version
+        action [perform]
+      end
     end
   end
 
@@ -178,6 +218,14 @@ action_class do
 
   def can_snap?
     node['platform_version'].split('.')[0].to_i >= 16
+  end
+
+  def snap?
+    lxd.lxd_dir.start_with?('/var/snap/')
+  end
+
+  def should_snap?
+    new_resource.branch == :feature
   end
 
   # watch out:  the only caller atm is action_init, which incorporates auto_install

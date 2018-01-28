@@ -199,11 +199,11 @@ action_class do
         action :delete
       end
     else
-      package 'lxd' do
+      apt_package 'lxd' do
         default_release 'trusty-backports' if (node['lsb']['codename'] == 'trusty') && (new_resource.branch == :lts)
         default_release 'xenial-backports' if (node['lsb']['codename'] == 'xenial') && (new_resource.branch == :feature)
         version new_resource.version if property_is_set? :version
-        action [perform]
+        action perform
       end
     end
   end

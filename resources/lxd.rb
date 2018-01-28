@@ -225,7 +225,7 @@ action_class do
   end
 
   def should_snap?
-    new_resource.branch == :feature
+    can_snap? && (new_resource.branch == :feature)
   end
 
   # watch out:  the only caller atm is action_init, which incorporates auto_install

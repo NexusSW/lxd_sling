@@ -1,7 +1,8 @@
 lxd 'default' do
   network_address '[::]'
   auto_upgrade true
-  branch :lts if node['lsb']['codename'] == 'trusty'
+  branch :lts
+  branch :feature if node['lsb']['codename'] == 'xenial'
   users 'travis' if ENV['TRAVIS'] == 'true'
 end
 

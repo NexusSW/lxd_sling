@@ -2,7 +2,7 @@ require 'yaml'
 require 'pp'
 
 property :network_name, String, name_property: true
-property :server_path, String, default: '/var/lib/lxd', identity: true
+property :server_path, String, identity: true # default: '/var/lib/lxd',
 property :profiles, Array, coerce: ->(profile) { [profile].flatten }
 
 property :bridge_driver, Symbol, equal_to: [:native, :openvswitch], default: :native, coerce: ->(val) { val.to_sym }

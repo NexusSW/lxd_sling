@@ -1,8 +1,6 @@
 require 'yaml'
 
-require 'pp'
-
-property :server_path, String, default: '/var/lib/lxd', identity: true
+property :server_path, String, identity: true # default: '/var/lib/lxd',
 property :branch, Symbol, default: :feature, equal_to: [:feature, :lts]
 property :auto_install, [true, false], default: false, desired_state: false
 property :auto_upgrade, [true, false], default: false, desired_state: false
@@ -15,14 +13,24 @@ property :network_port, String, default: '8443'
 property :trust_password, String, sensitive: true
 property :users, [Array, String]
 property :certificate_file, String
-property :certificate_key, String
-property :raw_config, Hash
+property :certificate_key, String # the filename isn't sensitive, but the contents are (handled on the File resource)
+# property :raw_config, Hash
 
 resource_name :lxd
 default_action :init
 
+# Strategy:  we'll always do a snap install when the feature branch is specified.  It's the only 'official' way afaik.
+#   and while we could get it from xenial-backports, I do believe that will version cap at 2.21
+# releases prior to Bionic will get 2.0.x when lts is specified.  Bionic will get 3.0.x.
+#   (basically whatever version is available in the official package repo)
+#   (i don't 'think' bionic-backports will be getting the 3.x feature packages - TBD)
+# when I get around to non-ubuntu images where lxd probably isn't in the dist repos...
+#   I might need to contrive some additional logic for verion resolution - TBD
+#     afaik snap will still be the primary means, but snap channels 'may' help with that
+
 load_current_value do
   lxd = Chef::Recipe::LXD.new node, server_path
+  server_path lxd.lxd_dir
   return unless lxd.installed?
   begin
     info = lxd.info
@@ -34,39 +42,39 @@ load_current_value do
   network_port address.slice!(/:[0-9]*$/).sub(':', '') if address
   network_address address if address
   branch lxd.installed?(:lts) ? :lts : :feature
-  raw_config info['config'] # TODO: normalize this to exclude any global configs that we seperately configure
-  version info['environment']['server_version'] # if node['lxd'] && node['lxd'].key?('version_pin')
+  # raw_config info['config'] # TODO: normalize this to exclude any global configs that we seperately configure
+  version info['environment']['server_version'].tr '"', ''
 end
 
 # the server_path property is included, but we're not supporting multiple installations of lxd
 # afaic just nest if you want to do some form of seperation (Issues and PR's welcome if you have a use case)
 # but the server_path property is there because it combines to form into some systemd service names
-#   just in case I need them later
+#   just in case I need them later - (this seems to be not true for snap installs)
+#   and I use it to locate the server certs
 #   and this allows the user to override that value in cases where 'they' did the multi-install and are just pointing us to it
 #     on that note, we'll go ahead and supply the `LXD_DIR=#{new_resource.server_path}` environment variable in our system calls
 #       that ends our support for this function
-#       bear in mind that none of my upstream work supports this (yet) (if i need to incorporate my upstream work)
 
 action :upgrade do
-  do_install
-  edit_resource!(:package, 'lxd') do
-    action :upgrade
-  end
   # by default, newer lxd does not install a bridge - so for parity with :install, remove the inherited bridge, which is whacked, anyways, if it was a vanilla 2.0.x default bridge (xenial)
   # the thinking is that the consumer will be setting one up in their recipe anyways, because they'll need to for parity with other dists
   if !new_resource.keep_bridge && lxd.installed?(:lts) && (new_resource.branch == :feature)
     lxd_network 'lxdbr0' do
+      server_path new_resource.server_path
       action :delete
       ignore_failure true # TODO: needs tested - i 'think' lxd will error if the bridge is in use, and that is 'ok', and preferred.  If it doesn't, then I could code that
-      only_if "grep '^LXD_IPV6_PROXY=\"true\"' /etc/default/lxd-bridge.upgraded"
+      only_if "grep '^LXD_IPV6_PROXY=\"true\"' /etc/default/lxd-bridge"
     end
     lxd_device 'eth0' do
+      server_path new_resource.server_path
       location :profile
       location_name 'default'
       action :nothing
       subscribes :delete, 'lxd_network[lxdbr0]', :before
     end
   end
+
+  do_install :upgrade
 end
 
 action :install do
@@ -86,8 +94,12 @@ action :init do
     we_installed = true unless was_installed
   end
 
+  # just in case we just migrated from ppa to snap
+  lxd.lxd_dir = lxd.default_lxd_dir if lxd.default_lxd_dir?
+
+  service_name = snap? ? 'snap.lxd.daemon' : 'lxd'
   # run `lxd init --auto` - though not strictly required, it's just good form...
-  service 'lxd' do
+  service service_name do
     action [:enable, :start]
   end
   restart_service = false
@@ -120,7 +132,7 @@ action :init do
     append true
   end if property_is_set? :users
 
-  file File.join(new_resource.server_path, 'server.crt') do
+  file File.join(lxd.lxd_dir, 'server.crt') do
     content File.read(new_resource.certificate_file)
     owner 'root'
     group 'root'
@@ -129,7 +141,7 @@ action :init do
     notifies :run, 'ruby_block[delayed-restart-lxd]', :immediately
   end if property_is_set? :certificate_file
 
-  file File.join(new_resource.server_path, 'server.key') do
+  file File.join(lxd.lxd_dir, 'server.key') do
     content File.read(new_resource.certificate_key)
     owner 'root'
     group 'root'
@@ -146,85 +158,74 @@ action :init do
     action :nothing
   end
 
-  service 'lxd' do
+  service service_name do
     action :restart
+    only_if { restart_service }
+  end
+
+  execute 'waitready' do
+    command 'lxd waitready --timeout 300'
     only_if { restart_service }
   end
 end
 
 action_class do
-  def lxd
-    @lxd ||= Chef::Recipe::LXD.new node, new_resource.server_path
-  end
+  include Chef::Recipe::LXD::ActionMixin
 
-  def do_install
+  def do_install(perform = :install)
     raise "Cannot install the #{new_resource.branch} branch of LXD on this version of this platform (#{node['lsb']['codename']})" unless can_install?(new_resource.branch)
     warn 'The LTS release of LXD was requested, but a newer version is already installed...  Continuing.' if (new_resource.branch == :lts) && lxd.installed?(:feature)
 
-    include_recipe 'lxd::lxd_from_package'
+    apt_update 'update' if node['platform_family'] == 'debian'
 
-    # :lts is a soft-pin on the stable version of lxd
-    #   it 'should' be safe to not version pin on the :lts branch in order to receive security patches & fixes
-    #     unless you're super strict and/or want to control the rollout
-
-    # Trusty: no functioning package available by default
-    #   backports contains :lts 2.0.x
-    # Xenial: :lts package available by default 2.0.x
-    #   backports contains latest canonical CI validated :feature 2.x
-
-    # I'm not explicitly supporting downgrading - use a version pin (untested - it 'should' work?)
-    #
-    # 2.21 will be the final feature release before 3.0 alpha release in January
-    #   still TBD which will be in bionic - but I'm hoping 3.0?  That'll make things nice & consistent
-    #   the PPA is EOL after December, so the only install meduims will be backports & snap
-    #     TBD if there will be a backports in bionic
-    #
-    # Once I'm done with this cookbook, I'm going to come back through here and rewrite to allow for snap installs
-    #   snap appears to be the only way we'll be able to install on other distros
-    #   the challenge will be the change in folder structure, so try to stay away from specifics as much as possible in the mean time
-    #   I might wind up going away from the lxd cookbook if i have to do too much more myself
-    #     the use of their recipes are becoming fringe, so may as well keep it all in house
-
-    edit_resource!(:package, 'lxd') do
-      default_release 'trusty-backports'
-    end if (node['lsb']['codename'] == 'trusty') && (new_resource.branch == :lts)
-
-    # Assumption for bionic:
-    #   just like xenial, stable repo will have whatver they call :lts
-    #     and we can just use the lxd repo to get the feature branch instead of backports
-    # so do I really need the lts16/18 aliases?
-    # it appears that the distro will dictate what version you get with :lts
-    #   except for the above case with trusty, which will go away with bionic's release
-
-    # uncomment in this block if propwerty_is_set? doesn't distinguish between caller set & load_current_value
-    if property_is_set? :version
-      # node.normal['lxd']['version_pin'] = new_resource.version
-      edit_resource!(:package, 'lxd') do
-        version new_resource.version
-        # version node['lxd']['version_pin']
+    if should_snap?
+      package %w(fuse squashfuse)
+      package 'snapd' # watchout: there could be PATH issues here, after this, if snap was not previously installed...
+      execute 'install-lxd' do
+        command 'snap install lxd'
+        not_if 'snap list lxd'
+      end
+      # wait for startup or migrate will fail
+      execute 'waitready' do
+        command '/snap/bin/lxd waitready --timeout 300'
+        action :nothing
+        subscribes :run, 'execute[install-lxd]', :immediately
+      end
+      execute 'migrate' do
+        command 'lxd.migrate --yes'
+        only_if 'test -f /usr/bin/lxc'
+      end
+      file '/etc/default/lxd-bridge' do
+        action :delete
+      end
+    else
+      apt_package 'lxd' do
+        default_release 'trusty-backports' if (node['lsb']['codename'] == 'trusty') && (new_resource.branch == :lts)
+        default_release 'xenial-backports' if (node['lsb']['codename'] == 'xenial') && (new_resource.branch == :feature)
+        version new_resource.version if property_is_set? :version
+        action perform
       end
     end
-
-    # This PPA will be gone after December...
-    # Recommendations is to use backports, or snap packages
-    #   backports will eventually be phased as well
-    #   leaving long term methods being what's installed by the distro and/or what's in their core package system, or install by snap
-    use_repo = false # (new_resource.branch == :feature) || property_is_set?(:version)
-    edit_resource!(:apt_repository, 'lxd') do
-      only_if { use_repo }
-    end
-
-    edit_resource!(:package, 'lxd') do
-      default_release 'xenial-backports'
-    end if (node['lsb']['codename'] == 'xenial') && (new_resource.branch == :feature)
   end
 
   def can_install?(_branch)
     return false unless node['platform'] == 'ubuntu'
     case new_resource.branch
     when :lts then node['platform_version'].split('.')[0].to_i >= 14
-    when :feature then node['platform_version'].split('.')[0].to_i >= 16
+    when :feature then can_snap?
     end
+  end
+
+  def can_snap?
+    node['platform_version'].split('.')[0].to_i >= 16
+  end
+
+  def snap?
+    lxd.lxd_dir.start_with?('/var/snap/')
+  end
+
+  def should_snap?
+    can_snap? && (new_resource.branch == :feature)
   end
 
   # watch out:  the only caller atm is action_init, which incorporates auto_install

@@ -6,11 +6,20 @@ class Chef::Recipe::LXD
   include Chef::Mixin::ShellOut
 
   def initialize(node, lxd_dir)
-    @lxd_dir = lxd_dir
+    @lxd_dir = lxd_dir || default_lxd_dir
     @node = node
   end
 
-  attr_reader :lxd_dir, :node
+  attr_reader :node
+  attr_accessor :lxd_dir
+
+  def default_lxd_dir
+    shell_out('test -f /snap/bin/lxc').error? ? '/var/lib/lxd' : '/var/snap/lxd/common/lxd'
+  end
+
+  def default_lxd_dir?
+    ['/var/lib/lxd', '/var/snap/lxd/common/lxd'].include? lxd_dir
+  end
 
   def info
     YAML.load exec! 'lxc info'
@@ -23,7 +32,8 @@ class Chef::Recipe::LXD
   end
 
   def exec(cmd)
-    shell_out "env LXD_DIR=#{lxd_dir} #{cmd}"
+    env = "LXD_DIR=#{lxd_dir} " if lxd_dir
+    shell_out "env #{env}#{cmd}"
   end
 
   def exec_sensitive!(cmd)

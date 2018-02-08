@@ -13,6 +13,7 @@ provisioner:
   deprecations_as_errors: true
   downloads:
     /tmp/kitchen/nodes: .kitchen/artifacts
+  require_chef_omnibus: 13.6.4
 
 # verifier:
 #   name: inspec

@@ -179,7 +179,9 @@ action_class do
     apt_update 'update' if node['platform_family'] == 'debian'
 
     if should_snap?
-      package %w(fuse squashfuse)
+      package %w(fuse squashfuse) do
+        ignore_failure true if node['lsb']['codename'] == 'trusty' # squashfuse is more of a nested host need.  Don't use trusty for nesting.
+      end
       package 'snapd' # watchout: there could be PATH issues here, after this, if snap was not previously installed...
       execute 'install-lxd' do
         command 'snap install lxd'

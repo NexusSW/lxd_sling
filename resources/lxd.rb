@@ -201,7 +201,6 @@ action_class do
     else
       apt_package 'lxd' do
         default_release 'trusty-backports' if (node['lsb']['codename'] == 'trusty') && (new_resource.branch == :lts)
-        default_release 'xenial-backports' if (node['lsb']['codename'] == 'xenial') && (new_resource.branch == :feature)
         version new_resource.version if property_is_set? :version
         action perform
       end
@@ -217,7 +216,11 @@ action_class do
   end
 
   def can_snap?
-    node['platform_version'].split('.')[0].to_i >= 16
+    # isinstalled || should be able to install if systemd is running ||
+    #   should be able to install systemd on trusty unless we're a container (enable snap on travis' full vm)
+    node['packages']['snapd'] || (node['init_package'] == 'systemd') ||
+      ((node['lsb']['codename'] == 'trusty') && (node['virtualization']['role'] == 'guest') &&
+        !%w(lxc lxd docker).index(node['virtualization']['system']))
   end
 
   def snap?

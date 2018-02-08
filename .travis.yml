@@ -3,9 +3,9 @@ language: ruby
 rvm:
 - 2.4.2
 install:
-- gem install test-kitchen berkshelf kitchen-lxd_nexus kitchen-inspec
+- gem install test-kitchen berkshelf kitchen-lxd_nexus kitchen-inspec ohai
+- ohai
 - KITCHEN_LOCAL_YAML='.kitchen.travis.yml' kitchen converge travis
-- cat /tmp/kitchen/nodes/travis-local.json && true
 - ip a
 - sudo lxc profile show default
 - cat /etc/default/lxd-bridge

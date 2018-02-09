@@ -213,6 +213,11 @@ action_class do
         version new_resource.version if property_is_set? :version
         action perform
       end
+      execute 'waitready' do
+        command 'lxd waitready --timeout 300'
+        action :nothing
+        subscribes :run, 'apt_package[lxd]', :immediately
+      end
     end
   end
 

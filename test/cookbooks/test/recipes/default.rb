@@ -12,7 +12,10 @@ if ENV['TRAVIS'] == 'true'
     group 'travis'
   end
 
-  directory "#{ENV['HOME']}/.config/lxc" # we only want the notify upon ownership change
+  directory "config" do # we only want the notify upon ownership change
+    path "#{ENV['HOME']}/.config/lxc"
+  end
+
   directory "#{ENV['HOME']}/.config/lxc" do
     owner 'travis'
     group 'travis'

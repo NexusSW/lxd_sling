@@ -6,28 +6,6 @@ lxd 'default' do
   users 'travis' if ENV['TRAVIS'] == 'true'
 end
 
-if ENV['TRAVIS'] == 'true'
-  directory "#{ENV['HOME']}/.config" do
-    owner 'travis'
-    group 'travis'
-  end
-
-  directory "config" do # we only want the notify upon ownership change
-    path "#{ENV['HOME']}/.config/lxc"
-  end
-
-  directory "#{ENV['HOME']}/.config/lxc" do
-    owner 'travis'
-    group 'travis'
-    notifies :run, 'execute[chown]', :immediately
-  end
-
-  execute 'chown' do
-    command "chown travis:travis #{ENV['HOME']}/.config/lxc/*"
-    action :nothing
-  end
-end
-
 lxd_network 'lxdbr0'
 lxd_profile 'default'
 

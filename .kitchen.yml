@@ -11,8 +11,6 @@ provisioner:
   multiple_converge: 2
   enforce_idempotency: true
   deprecations_as_errors: true
-  downloads:
-    /tmp/kitchen/nodes: .kitchen/artifacts
 
 # verifier:
 #   name: inspec

@@ -1,3 +1,4 @@
+
 require 'yaml'
 require 'openssl'
 require 'chef/mixin/shell_out'

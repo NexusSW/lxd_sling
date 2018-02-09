@@ -1,3 +1,4 @@
+
 class Chef::Recipe::LXD
   module ContainerProperties
     def self.included(resource)

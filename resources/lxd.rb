@@ -1,3 +1,4 @@
+
 require 'yaml'
 
 property :server_path, String, identity: true # default: '/var/lib/lxd',

@@ -160,7 +160,7 @@ action :modify do
     ipv4range = old_ipv4_dhcp_range(ipv4, new_resource.ipv4_dhcp_ranges)
     template OLD_BRIDGE_FILE do
       source 'lxd-bridge.erb'
-      cookbook 'lxd_nexus'
+      cookbook 'lxd_sling'
       variables resource: {
         network_name: new_resource.network_name,
         raw_dnsmasq: new_resource.raw_dnsmasq,
@@ -228,7 +228,7 @@ action :delete do
     end
     template OLD_BRIDGE_FILE do
       source 'lxd-bridge.erb'
-      cookbook 'lxd_nexus'
+      cookbook 'lxd_sling'
       variables resource: {
         network_name: '',
         use_lxd_bridge: 'false',

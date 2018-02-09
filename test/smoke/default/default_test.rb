@@ -1,4 +1,4 @@
-# Inspec test for recipe lxd_nexus::default
+# Inspec test for recipe lxd_sling::default
 
 # The Inspec reference, with examples and extensive documentation, can be
 # found at http://inspec.io/docs/reference/resources/

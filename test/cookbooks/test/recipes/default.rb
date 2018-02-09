@@ -1,3 +1,4 @@
+
 lxd 'default' do
   network_address '[::]'
   auto_upgrade true

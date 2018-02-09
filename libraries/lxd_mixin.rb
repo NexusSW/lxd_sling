@@ -1,3 +1,4 @@
+
 class Chef::Recipe::LXD
   module Mixin
     def lxd

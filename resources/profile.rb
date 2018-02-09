@@ -1,3 +1,4 @@
+
 require 'yaml'
 
 property :profile_name, String, name_property: true

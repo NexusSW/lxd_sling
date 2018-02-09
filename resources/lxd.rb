@@ -101,6 +101,7 @@ action :init do
   # run `lxd init --auto` - though not strictly required, it's just good form...
   service service_name do
     action [:enable, :start]
+    not_if { snap? && (node['init_package'] == 'init') } # kludge for snap lxd on upstart
   end
   restart_service = false
   if we_installed
@@ -158,9 +159,15 @@ action :init do
     action :nothing
   end
 
-  service service_name do
-    action :restart
-    only_if { restart_service }
+  if snap? && (node['init_package'] == 'init') # kludge for snap lxd on upstart
+    execute 'snap restart lxd' do
+      only_if { restart_service }
+    end
+  else
+    service service_name do
+      action :restart
+      only_if { restart_service }
+    end
   end
 
   execute 'waitready' do

@@ -1,7 +1,7 @@
 sudo: required
 language: ruby
 rvm:
-- 2.4.2
+- 2.4.3
 install:
 - gem install test-kitchen berkshelf kitchen-lxd_nexus kitchen-inspec
 - KITCHEN_LOCAL_YAML='.kitchen.travis.yml' kitchen converge travis

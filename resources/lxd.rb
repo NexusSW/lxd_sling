@@ -103,7 +103,7 @@ action :init do
     action [:enable, :start]
     not_if { snap? && (node['init_package'] == 'init') } # kludge for snap lxd on upstart
   end
-  restart_service = false
+  restart_service = snap? && (node['init_package'] == 'init') # kludge for snap lxd on upstart
   if we_installed
     cmd = 'lxd init --auto'
     if new_resource.network_address

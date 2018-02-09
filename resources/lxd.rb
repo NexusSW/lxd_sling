@@ -101,6 +101,7 @@ action :init do
   # run `lxd init --auto` - though not strictly required, it's just good form...
   service service_name do
     action [:enable, :start]
+    not_if { snap? && (node['init_package'] == 'init') } # kludge for snap lxd on upstart
   end
   restart_service = false
   if we_installed
@@ -158,9 +159,15 @@ action :init do
     action :nothing
   end
 
-  service service_name do
-    action :restart
-    only_if { restart_service }
+  if snap? && (node['init_package'] == 'init') # kludge for snap lxd on upstart
+    execute 'snap restart lxd' do
+      only_if { restart_service }
+    end
+  else
+    service service_name do
+      action :restart
+      only_if { restart_service }
+    end
   end
 
   execute 'waitready' do
@@ -179,7 +186,9 @@ action_class do
     apt_update 'update' if node['platform_family'] == 'debian'
 
     if should_snap?
-      package %w(fuse squashfuse)
+      apt_package 'squashfuse' do
+        only_if { (node['virtualization']['system'] == 'lxd') && (node['virtualization']['role'] == 'guest') }
+      end
       package 'snapd' # watchout: there could be PATH issues here, after this, if snap was not previously installed...
       execute 'install-lxd' do
         command 'snap install lxd'
@@ -201,9 +210,13 @@ action_class do
     else
       apt_package 'lxd' do
         default_release 'trusty-backports' if (node['lsb']['codename'] == 'trusty') && (new_resource.branch == :lts)
-        default_release 'xenial-backports' if (node['lsb']['codename'] == 'xenial') && (new_resource.branch == :feature)
         version new_resource.version if property_is_set? :version
         action perform
+      end
+      execute 'waitready' do
+        command 'lxd waitready --timeout 300'
+        action :nothing
+        subscribes :run, 'apt_package[lxd]', :immediately
       end
     end
   end
@@ -217,7 +230,12 @@ action_class do
   end
 
   def can_snap?
-    node['platform_version'].split('.')[0].to_i >= 16
+    # isinstalled || should be able to install if systemd is running ||
+    #   should be able to install systemd on trusty unless we're a container (enable snap on travis' full vm)
+    node['packages']['snapd'] || (node['init_package'] == 'systemd') ||
+      ((node['lsb']['codename'] == 'trusty') &&
+        (!node['virtualization'].key?('role') || (node['virtualization']['role'] == 'host') ||
+        (node['virtualization']['role'] == 'guest') && !%w(lxc lxd docker).index(node['virtualization']['system'])))
   end
 
   def snap?

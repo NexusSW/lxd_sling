@@ -23,8 +23,25 @@ action :create do
   action_modify
 end
 
+attr_reader :sr_devices
+
+def device(name, &block)
+  @sr_devices ||= []
+  @sr_devices << [name, block]
+end
+
 action :modify do
   modify_properties(:profile, new_resource.profile_name)
+
+  new_resource.sr_devices.each do |dev_name, block|
+    declare_resource('lxd_device', "#{new_resource.profile_name}:#{dev_name}") do |dev|
+      dev.device_name dev_name
+      dev.location :profile
+      dev.location_name new_resource.profile_name
+      dev.action new_resource.action
+      dev.instance_eval(&block)
+    end
+  end
 end
 
 action :delete do

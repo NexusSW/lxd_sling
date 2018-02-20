@@ -12,9 +12,6 @@ provisioner:
   enforce_idempotency: true
   deprecations_as_errors: true
 
-# verifier:
-#   name: inspec
-
 transport: lxd
 
 platforms:
@@ -28,7 +25,5 @@ suites:
   - name: lxd
     run_list:
       - test::default
-    verifier:
-      inspec_tests:
-        - test/smoke/default
+    verifier: inspec
     attributes:

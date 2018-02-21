@@ -34,8 +34,7 @@ action :modify do
   modify_properties(:profile, new_resource.profile_name)
 
   new_resource.sr_devices.each do |dev_name, block|
-    declare_resource('lxd_device', "#{new_resource.profile_name}:#{dev_name}") do |dev|
-      dev.device_name dev_name
+    declare_resource('lxd_device', dev_name) do |dev|
       dev.location :profile
       dev.location_name new_resource.profile_name
       dev.action new_resource.action

@@ -8,4 +8,4 @@ install:
 - ip a
 - sudo lxc profile show default
 script:
-- sudo su -l $USER -c "cd $(pwd) && rvm use ${RUBY_VERSION/ruby-/} && kitchen converge"
+- sudo su -l $USER -c "cd $(pwd) && rvm use ${RUBY_VERSION/ruby-/} && kitchen verify"

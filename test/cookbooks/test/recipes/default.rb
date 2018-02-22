@@ -8,12 +8,11 @@ lxd 'default' do
 end
 
 lxd_network 'lxdbr0'
-lxd_profile 'default'
 
-lxd_device 'eth0' do
-  location :profile
-  location_name 'default'
-  type :nic
-  parent 'lxdbr0'
-  nictype :bridged
+lxd_profile 'default' do
+  device 'eth0' do
+    type :nic
+    parent 'lxdbr0'
+    nictype :bridged
+  end
 end

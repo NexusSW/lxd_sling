@@ -3,9 +3,9 @@ language: ruby
 rvm:
 - 2.4.3
 install:
-- gem install test-kitchen berkshelf kitchen-lxd_sling train-lxd
+- gem install test-kitchen berkshelf kitchen-lxd_sling kitchen-inspec train-lxd
 - KITCHEN_LOCAL_YAML='.kitchen.travis.yml' kitchen converge travis
 - ip a
 - sudo lxc profile show default
 script:
-- sudo su -l $USER -c "cd $(pwd) && rvm use ${RUBY_VERSION/ruby-/} && kitchen converge"
+- sudo su -l $USER -c "cd $(pwd) && rvm use ${RUBY_VERSION/ruby-/} && kitchen verify"

@@ -25,8 +25,12 @@ end
 
 attr_reader :sr_devices
 
-def device(name, &block)
+def initialize(*args)
+  super
   @sr_devices ||= []
+end
+
+def device(name, &block)
   @sr_devices << [name, block]
 end
 

@@ -89,7 +89,7 @@ action :create do
   new_resource.class.state_properties.each do |prop|
     next if prop.identity? || prop.name_property?
     next if EXCLUDE_AUTO_PROPS.include? prop.name
-    next unless property_is_set? prop.name
+    next unless new_resource.property_is_set? prop.name
     val = new_resource.send prop.name
     next unless val
     cmd += " #{translate_key(prop.name)}='#{val}'"
@@ -108,7 +108,7 @@ action :modify do
   new_resource.class.state_properties.each do |prop|
     next if prop.identity? || prop.name_property?
     next if EXCLUDE_AUTO_PROPS.include? prop.name
-    next unless property_is_set? prop.name
+    next unless new_resource.property_is_set? prop.name
     val = new_resource.send(prop.name).to_s
     converge_if_changed prop.name do
       cmd = (val && !val.empty?) ? (setcmd + "#{translate_key(prop.name)} '#{val}'") : (unsetcmd + translate_key(prop.name))
@@ -166,12 +166,12 @@ action_class do
   }.freeze
   def validate_device
     REQUIRED_PROPS[new_resource.type].each do |propname|
-      raise "#{propname} is required for device type #{new_resource.type}" unless property_is_set? propname
+      raise "#{propname} is required for device type #{new_resource.type}" unless new_resource.property_is_set? propname
     end
     new_resource.class.state_properties.each do |prop|
       next if prop.identity? || prop.name_property?
       next if EXCLUDE_AUTO_PROPS.include? prop.name
-      next unless property_is_set? prop.name
+      next unless new_resource.property_is_set? prop.name
       raise "#{prop.name} is not valid for device type #{new_resource.type}" unless VALID_PROPS[new_resource.type].include? prop.name
     end
   end

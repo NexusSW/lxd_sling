@@ -121,7 +121,7 @@ action :init do
     end
   end
 
-  if property_is_set?(:trust_password) && !lxd.test_password(new_resource.trust_password)
+  if new_resource.property_is_set?(:trust_password) && !lxd.test_password(new_resource.trust_password)
     converge_by 'setting trust password' do
       lxd.exec_sensitive! "lxc config set core.trust_password '#{new_resource.trust_password}'"
       lxd.save_password_hash lxd.password_hash(new_resource.trust_password)
@@ -132,7 +132,7 @@ action :init do
     members new_resource.users
     action :modify
     append true
-  end if property_is_set? :users
+  end if new_resource.property_is_set? :users
 
   file File.join(lxd.lxd_dir, 'server.crt') do
     content File.read(new_resource.certificate_file)
@@ -141,7 +141,7 @@ action :init do
     mode '0644'
     action :create
     notifies :run, 'ruby_block[delayed-restart-lxd]', :immediately
-  end if property_is_set? :certificate_file
+  end if new_resource.property_is_set? :certificate_file
 
   file File.join(lxd.lxd_dir, 'server.key') do
     content File.read(new_resource.certificate_key)
@@ -151,7 +151,7 @@ action :init do
     sensitive true
     action :create
     notifies :run, 'ruby_block[delayed-restart-lxd]', :immediately
-  end if property_is_set? :certificate_key
+  end if new_resource.property_is_set? :certificate_key
 
   ruby_block 'delayed-restart-lxd' do
     block do
@@ -211,7 +211,7 @@ action_class do
     else
       apt_package 'lxd' do
         default_release 'trusty-backports' if (node['lsb']['codename'] == 'trusty') && (new_resource.branch == :lts)
-        version new_resource.version if property_is_set? :version
+        version new_resource.version if new_resource.property_is_set? :version
         action perform
       end
       execute 'waitready' do

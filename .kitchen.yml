@@ -12,8 +12,6 @@ provisioner:
   enforce_idempotency: true
   deprecations_as_errors: true
 
-transport: lxd
-
 platforms:
   - name: ubuntu-14.04
   - name: ubuntu-16.04
@@ -21,9 +19,11 @@ platforms:
     driver:
       image_server: https://cloud-images.ubuntu.com/daily
 
+transport: lxd
+
 suites:
   - name: lxd
     run_list:
       - test::default
     verifier: inspec
-    attributes:
+    

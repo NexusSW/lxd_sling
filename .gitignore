@@ -6,6 +6,7 @@ _*
 \#*#
 .*.sw[a-z]
 *.un~
+.vscode
 
 # Bundler
 Gemfile.lock

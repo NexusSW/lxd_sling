@@ -119,7 +119,7 @@ action :create do
     # - and also of differing behaviours between releases after setup
     #   - trusty is unconfigured and has no lxdbr0
     #   - xenial has lxdbr0 and has 'none' for the addresses and 'dynamic' for dns.mode
-    next unless property_is_set?(prop.name)
+    next unless new_resource.property_is_set?(prop.name)
     next if (prop.name == :ipv4_dhcp_ranges) && (val.to_s == 'auto') # 'auto' is an invalid value, but I needed to introduce it for an edge case with the old_bridge
     cmd << " #{key_name(prop)}='#{val}'" if val
   end

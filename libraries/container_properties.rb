@@ -157,7 +157,7 @@ class Chef::Recipe::LXD
                 end
               end
             end
-          elsif !create_prefix && property_is_set?(hash_key) && current_resource.send(hash_key) # hash was set to nil in the recipe, but we have settings to unset
+          elsif !create_prefix && current_resource.property_is_set?(hash_key) && current_resource.send(hash_key) # hash was set to nil in the recipe, but we have settings to unset
             current_resource.send(hash_key).each do |key, val|
               next if val.nil?
               keyname = "#{hash_key.to_s.tr('_', '.')}.#{key}"

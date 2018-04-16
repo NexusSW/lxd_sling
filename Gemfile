@@ -1,5 +1,8 @@
 source 'https://rubygems.org'
 
-gem 'kitchen-lxd_sling'
-gem 'train-lxd'
-
+group :development do
+    gem 'kitchen-lxd_sling'
+    gem 'train-lxd'
+    gem 'kitchen-inspec'
+    gem 'berkshelf'
+end

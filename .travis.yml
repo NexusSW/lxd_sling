@@ -3,6 +3,7 @@ language: ruby
 rvm:
 - 2.5.0
 before_script:
+- ls -al /var/lib/apt/periodic
 - KITCHEN_LOCAL_YAML='.kitchen.travis.yml' kitchen converge travis
 script:
 - sudo su -l $USER -c "cd $(pwd) && rvm use ${RUBY_VERSION/ruby-/} && kitchen verify"

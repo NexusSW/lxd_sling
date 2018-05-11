@@ -11,8 +11,6 @@ provisioner:
   multiple_converge: 2
   enforce_idempotency: true
   deprecations_as_errors: true
-  product_name: chef
-  product_version: 14.0.202
 
 platforms:
   - name: ubuntu-14.04

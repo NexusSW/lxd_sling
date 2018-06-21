@@ -5,3 +5,7 @@ platforms:
 suites:
   - name: travis
     run_list: test::default
+
+provisioner:
+  multiple_converge: 1
+  enforce_idempotency: false

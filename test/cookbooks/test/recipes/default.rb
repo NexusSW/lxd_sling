@@ -1,6 +1,5 @@
 
 lxd 'default' do
-  network_address '[::]'
   auto_upgrade true
   branch :lts
   branch :feature if (node['lsb']['codename'] == 'xenial') || (ENV['TRAVIS'] == 'true')

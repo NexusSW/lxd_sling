@@ -5,9 +5,9 @@
 
 require 'yaml'
 
-describe port(8443) do
-  it { should be_listening }
-end
+# describe port(8443) do
+#   it { should be_listening }
+# end
 
 describe bridge('lxdbr0') do
   it { should exist }

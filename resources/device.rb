@@ -148,7 +148,7 @@ action_class do
     none: [],
     nic: [:nictype, :parent],
     infiniband: [:nictype, :parent],
-    disk: [:path, :source],
+    disk: [:path], # , :source], # TODO: research the 'requiredesness' of 'source'...  not needed for the rootfs device
     unix_char: [],
     unix_block: [],
     usb: [:vendorid],

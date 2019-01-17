@@ -31,7 +31,7 @@ class Chef::Recipe::LXD
       resource.property :limits_network_priority, [Integer, nil], default: 0, coerce: coercions[:int], callbacks: { 'limits_network_priority out of range (0-10)' => ->(val) { (val >= 0) && (val <= 10) } }
       resource.property :limits_processes, [Integer, nil], coerce: coercions[:int]
 
-      resource.property :linux_kernel_modules, [String, nil], coerce: ->(val) { val.is_a? Array ? val.join(',') : val }
+      resource.property :linux_kernel_modules, [String, nil], coerce: ->(val) { val.is_a?(Array) ? val.join(',') : val }
 
       resource.property :migration_incremental_memory, [true, false, nil], default: false, coerce: coercions[:bool]
       resource.property :migration_incremental_memory_goal, [Integer, nil], default: 70, coerce: coercions[:int], callbacks: { 'migration_incremental_memory_goal out of range (0-100)%' => ->(val) { (val >= 0) && (val <= 100) } }

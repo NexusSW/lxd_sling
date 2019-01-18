@@ -159,8 +159,8 @@ action_class do
     nic: [:nictype, :parent, :limits_egress, :limits_ingress, :limits_max, :hostname, :hwaddr, :mtu, :vlan, :ipv4_address, :ipv6_address, :security_mac_filtering],
     infiniband: [:nictype, :parent, :hwaddr, :mtu],
     disk: [:path, :source, :limits_read, :limits_write, :limits_max, :path, :source, :optional, :readonly, :size, :recursive, :pool],
-    unix_char: [:source, :path, :major, :minor, :uid, :gid, :mode],
-    unix_block: [:source, :path, :major, :minor, :uid, :gid, :mode],
+    unix_char: [:source, :path, :major, :minor, :uid, :gid, :mode, :required],
+    unix_block: [:source, :path, :major, :minor, :uid, :gid, :mode, :required],
     usb: [:vendorid, :uid, :gid, :mode, :productid, :required],
     gpu: [:uid, :gid, :mode, :vendorid, :productid, :id, :pci],
   }.freeze

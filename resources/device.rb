@@ -91,7 +91,7 @@ action :create do
     next if EXCLUDE_AUTO_PROPS.include? prop.name
     next unless new_resource.property_is_set? prop.name
     val = new_resource.send prop.name
-    next unless val
+    next if val.nil?
     cmd += " #{translate_key(prop.name)}='#{val}'"
   end
   converge_by "create device (#{new_resource.device_name}) in #{new_resource.location} '#{new_resource.location_name}'" do

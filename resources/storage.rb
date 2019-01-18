@@ -13,10 +13,10 @@ property :backend, Symbol, equal_to: [:dir, :btrfs, :ceph], required: true, defa
 property :size, String
 property :source, String # , required: true
 property :ceph_cluster_name, String, default: 'ceph'
-property :ceph_osd_force_reuse, [true, false], default: false, coerce: coercions[:bool]
-property :ceph_osd_pg_num, Integer, default: 32, coerce: coercions[:int]
+property :ceph_osd_force_reuse, [true, false, nil], default: false, coerce: coercions[:bool]
+property :ceph_osd_pg_num, [Integer, nil], default: 32, coerce: coercions[:int]
 property :ceph_osd_pool_name, String # , required: true
-property :ceph_rbd_clone_copy, [true, false], default: true, coerce: coercions[:bool]
+property :ceph_rbd_clone_copy, [true, false, nil], default: true, coerce: coercions[:bool]
 property :ceph_user_name, String # , required: true
 
 resource_name :lxd_storage

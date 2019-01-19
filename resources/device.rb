@@ -77,6 +77,7 @@ load_current_value do
   devices = YAML.load(lxd.exec!(lxd.device_cmd(self, 'show')))
   return unless devices.key? device_name
   devices[device_name].each do |key, val|
+    val = val.tr('-', '_') if key.to_s == 'type'
     send key.tr('.', '_'), val
   end
 end
